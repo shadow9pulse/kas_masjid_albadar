@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Kas Masjid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #059669; }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); }
+        
+        /* Pengaturan Kertas untuk Cetak */
+        @media print {
+            @page { margin: 1.5cm; }
+            body { background-color: white !important; -webkit-print-color-adjust: exact; }
+            .shadow-sm, .shadow-md { box-shadow: none !important; }
+            .border { border: 1px solid #e5e7eb !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 right-5 transform transition-all duration-300 translate-x-full opacity-0 bg-green-600 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center print:hidden">
+        <span id="toast-msg">Notifikasi</span>
+    </div>
+
+    <!-- Login Section -->
+    <div id="login-section" class="min-h-screen flex items-center justify-center bg-green-50 print:hidden">
+        <div class="bg-white p-8 rounded-lg shadow-md w-96 border-t-4 border-green-600">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold text-green-700">Kas Masjid</h2>
+                <p class="text-sm text-gray-500">Silakan login untuk kelola kas</p>
+            </div>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Username</label>
+                    <input type="text" id="username" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="password" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500" required>
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-2 rounded hover:bg-green-700 transition">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-section" class="hidden min-h-screen print:min-h-0 print:block">
+        
+        <!-- Navbar -->
+        <nav class="bg-green-700 text-white shadow-md print:hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <h1 class="text-xl font-bold tracking-wide">Sistem Kas Masjid</h1>
+                <div class="flex gap-2">
+                    <button onclick="openPasswordModal()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm font-semibold transition">Ganti Sandi</button>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-sm font-semibold transition">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- KOP Surat Khusus Print -->
+        <div class="hidden print:block text-center mt-4 mb-8">
+            <h1 class="text-2xl font-bold text-gray-900 uppercase">Laporan Keuangan Kas Masjid</h1>
+            <p id="print-date" class="text-gray-600 mt-1"></p>
+            <hr class="border-t-2 border-gray-800 mt-4">
+        </div>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0">
+            
+            <!-- Cards Saldo & Piutang (Grid 2 Kolom) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 print:block print:mb-4">
+                <!-- Saldo Kas Card -->
+                <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-6 flex justify-between items-center print:border-l-0 print:border-b-2 print:border-gray-800 print:rounded-none print:p-0 print:pb-4 print:mb-4">
+                    <div>
+                        <h2 class="text-gray-500 text-sm font-semibold uppercase tracking-wider print:text-gray-800">Total Saldo Kas Saat Ini</h2>
+                        <p id="total-saldo" class="text-3xl font-bold text-gray-800 mt-1">Rp 0</p>
+                    </div>
+                    <button onclick="cetakLaporan()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold shadow-md transition flex items-center gap-2 print:hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" />
+                        </svg>
+                        Cetak Doc
+                    </button>
+                </div>
+                
+                <!-- Piutang Card -->
+                <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-6 flex justify-between items-center print:border-l-0 print:border-b-2 print:border-gray-800 print:rounded-none print:p-0 print:pb-4">
+                    <div>
+                        <h2 class="text-gray-500 text-sm font-semibold uppercase tracking-wider print:text-gray-800">Total Buku Piutang (Belum Dibayar)</h2>
+                        <p id="total-piutang" class="text-3xl font-bold text-orange-600 mt-1">Rp 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grids for Tables (2 Kolom x 2 Baris untuk 4 tabel) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block print:gap-0">
+                
+                <!-- Pemasukan -->
+                <div class="bg-white rounded-lg shadow-sm border p-4 print:mb-6 print:border-0 print:p-0">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-green-700">Rincian Pemasukan</h3>
+                        <button onclick="openModal('pemasukan')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded print:hidden">+ Tambah</button>
+                    </div>
+                    <div class="overflow-x-auto h-64 print:h-auto print:overflow-visible">
+                        <table class="w-full text-sm text-left print:border print:border-gray-300">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 print:bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-2 print:border">Keterangan</th>
+                                    <th class="py-2 px-2 print:border text-right">Jumlah</th>
+                                    <th class="py-2 px-2 print:hidden text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pemasukan-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Infaq Jumat -->
+                <div class="bg-white rounded-lg shadow-sm border p-4 print:mb-6 print:border-0 print:p-0">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-blue-700">Rincian Infaq Jum'at</h3>
+                        <button onclick="openModal('infaq')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded print:hidden">+ Tambah</button>
+                    </div>
+                    <div class="overflow-x-auto h-64 print:h-auto print:overflow-visible">
+                        <table class="w-full text-sm text-left print:border print:border-gray-300">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 print:bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-2 print:border">Tanggal/Ket</th>
+                                    <th class="py-2 px-2 print:border text-right">Jumlah</th>
+                                    <th class="py-2 px-2 print:hidden text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="infaq-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Pengeluaran -->
+                <div class="bg-white rounded-lg shadow-sm border p-4 print:mb-6 print:border-0 print:p-0">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-red-700">Rincian Pengeluaran</h3>
+                        <button onclick="openModal('pengeluaran')" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded print:hidden">+ Tambah</button>
+                    </div>
+                    <div class="overflow-x-auto h-64 print:h-auto print:overflow-visible">
+                        <table class="w-full text-sm text-left print:border print:border-gray-300">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 print:bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-2 print:border">Keterangan</th>
+                                    <th class="py-2 px-2 print:border text-right">Jumlah</th>
+                                    <th class="py-2 px-2 print:hidden text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pengeluaran-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Buku Piutang -->
+                <div class="bg-white rounded-lg shadow-sm border p-4 print:mb-6 print:border-0 print:p-0">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-orange-700">Buku Piutang</h3>
+                        <button onclick="openModal('piutang')" class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded print:hidden">+ Tambah</button>
+                    </div>
+                    <div class="overflow-x-auto h-64 print:h-auto print:overflow-visible">
+                        <table class="w-full text-sm text-left print:border print:border-gray-300">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 print:bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-2 print:border">Peminjam/Ket</th>
+                                    <th class="py-2 px-2 print:border text-right">Jumlah</th>
+                                    <th class="py-2 px-2 print:hidden text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="piutang-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+            </div>
+        </main>
+    </div>
+
+    <!-- Data Form Modal -->
+    <div id="form-modal" class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-40 print:hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96 transform transition-all">
+            <h3 id="modal-title" class="text-lg font-bold mb-4">Tambah Data</h3>
+            <form id="data-form">
+                <input type="hidden" id="form-type">
+                <input type="hidden" id="form-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Keterangan / Nama</label>
+                    <input type="text" id="keterangan" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Jumlah (Rp)</label>
+                    <input type="number" id="jumlah" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500" required>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Password Form Modal -->
+    <div id="password-modal" class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-50 print:hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96 transform transition-all border-t-4 border-yellow-500">
+            <h3 class="text-lg font-bold mb-4 text-yellow-700">Ganti Password Admin</h3>
+            <form id="password-form">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Password Baru</label>
+                    <input type="password" id="new-password" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500" required>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closePasswordModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-sm transition">Ubah Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // State & Variabel
+        let dataKas = { pemasukan: [], infaq: [], pengeluaran: [], piutang: [] };
+        let adminCreds = { username: 'admin', password: 'admin' };
+        let isLoggedIn = false; 
+        let isStorageBlocked = false;
+
+        // SAFE STORAGE LOADER
+        try {
+            const savedData = localStorage.getItem('kasMasjid');
+            if (savedData) {
+                const parsed = JSON.parse(savedData);
+                dataKas.pemasukan = parsed.pemasukan || [];
+                dataKas.infaq = parsed.infaq || [];
+                dataKas.pengeluaran = parsed.pengeluaran || [];
+                dataKas.piutang = parsed.piutang || [];
+            }
+            
+            const savedCreds = localStorage.getItem('adminCreds');
+            if (savedCreds) adminCreds = JSON.parse(savedCreds);
+        } catch (error) {
+            isStorageBlocked = true;
+            console.warn("Penyimpanan diblokir oleh browser.");
+        }
+
+        const saveData = () => {
+            if (isStorageBlocked) {
+                showToast('Browser memblokir penyimpanan! Data hilang bila refresh.', true);
+                return;
+            }
+            try {
+                localStorage.setItem('kasMasjid', JSON.stringify(dataKas));
+                localStorage.setItem('adminCreds', JSON.stringify(adminCreds));
+            } catch (e) {
+                showToast('Gagal menyimpan data!', true);
+            }
+        };
+
+        const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+
+        const showToast = (msg, isError = false) => {
+            const toast = document.getElementById('toast');
+            toast.className = `fixed top-5 right-5 transform transition-all duration-300 bg-${isError ? 'red' : 'green'}-600 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center print:hidden`;
+            document.getElementById('toast-msg').innerText = msg;
+            
+            setTimeout(() => { toast.classList.remove('translate-x-full', 'opacity-0'); }, 10);
+            setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); }, 3000);
+        };
+
+        const cetakLaporan = () => {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('print-date').innerText = 'Dicetak pada: ' + new Date().toLocaleDateString('id-ID', options);
+            window.print();
+        };
+
+        // LOGIN SYSTEM
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            
+            if (user === adminCreds.username && pass === adminCreds.password) {
+                isLoggedIn = true;
+                checkLogin();
+                
+                if (isStorageBlocked) showToast('Login Sukses, tapi browser memblokir penyimpanan.', true);
+                else showToast('Login berhasil!');
+            } else {
+                showToast('Username atau password salah!', true);
+            }
+        });
+
+        const logout = () => {
+            isLoggedIn = false;
+            checkLogin();
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        };
+
+        const checkLogin = () => {
+            if (isLoggedIn) {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                renderDashboard();
+            } else {
+                document.getElementById('login-section').classList.remove('hidden');
+                document.getElementById('dashboard-section').classList.add('hidden');
+            }
+        };
+
+        // Modal Password
+        const openPasswordModal = () => document.getElementById('password-modal').classList.remove('hidden');
+        const closePasswordModal = () => document.getElementById('password-modal').classList.add('hidden');
+
+        document.getElementById('password-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            adminCreds.password = document.getElementById('new-password').value;
+            saveData();
+            showToast('Password berhasil diubah!');
+            closePasswordModal();
+            document.getElementById('password-form').reset();
+        });
+
+        // Modal Data
+        const openModal = (type, id = null) => {
+            document.getElementById('form-type').value = type;
+            document.getElementById('form-id').value = id !== null ? id : '';
+            const titleMap = { pemasukan: 'Pemasukan', infaq: "Infaq Jum'at", pengeluaran: 'Pengeluaran', piutang: 'Buku Piutang' };
+            document.getElementById('modal-title').innerText = (id !== null ? 'Edit ' : 'Tambah ') + titleMap[type];
+            
+            if (id !== null) {
+                const item = dataKas[type].find(i => i.id == id);
+                document.getElementById('keterangan').value = item.ket;
+                document.getElementById('jumlah').value = item.jumlah;
+            } else {
+                document.getElementById('data-form').reset();
+            }
+            document.getElementById('form-modal').classList.remove('hidden');
+        };
+
+        const closeModal = () => document.getElementById('form-modal').classList.add('hidden');
+
+        document.getElementById('data-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('form-type').value;
+            const id = document.getElementById('form-id').value;
+            const ket = document.getElementById('keterangan').value;
+            const jumlah = parseInt(document.getElementById('jumlah').value);
+
+            if (id) {
+                const index = dataKas[type].findIndex(i => i.id == id);
+                dataKas[type][index] = { id: parseInt(id), ket, jumlah };
+                showToast('Data berhasil diubah');
+            } else {
+                dataKas[type].push({ id: Date.now(), ket, jumlah });
+                showToast('Data berhasil ditambahkan');
+            }
+
+            saveData();
+            closeModal();
+            renderDashboard();
+        });
+
+        const deleteData = (type, id) => {
+            dataKas[type] = dataKas[type].filter(i => i.id != id);
+            saveData();
+            showToast('Data berhasil dihapus', true);
+            renderDashboard();
+        };
+
+        const renderTable = (type, elementId) => {
+            const tbody = document.getElementById(elementId);
+            tbody.innerHTML = '';
+            dataKas[type].forEach(item => {
+                tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-100 print:border print:border-gray-300">
+                        <td class="py-2 px-2 print:border print:border-gray-300">${item.ket}</td>
+                        <td class="py-2 px-2 text-right print:border print:border-gray-300">${formatRp(item.jumlah)}</td>
+                        <td class="py-2 px-2 text-center print:hidden">
+                            <button onclick="openModal('${type}', ${item.id})" class="text-blue-600 hover:underline text-xs mr-2">Edit</button>
+                            <button onclick="deleteData('${type}', ${item.id})" class="text-red-600 hover:underline text-xs">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        };
+
+        const renderDashboard = () => {
+            renderTable('pemasukan', 'pemasukan-body');
+            renderTable('infaq', 'infaq-body');
+            renderTable('pengeluaran', 'pengeluaran-body');
+            renderTable('piutang', 'piutang-body');
+
+            const sum = arr => arr.reduce((acc, curr) => acc + curr.jumlah, 0);
+            const totalMasuk = sum(dataKas.pemasukan) + sum(dataKas.infaq);
+            const totalKeluar = sum(dataKas.pengeluaran);
+            const totalPiutang = sum(dataKas.piutang);
+            
+            document.getElementById('total-saldo').innerText = formatRp(totalMasuk - totalKeluar);
+            document.getElementById('total-piutang').innerText = formatRp(totalPiutang);
+        };
+
+        // Jalankan saat pertama dimuat
+        checkLogin();
+    </script>
+</body>
+</html>
